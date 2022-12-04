@@ -22,7 +22,10 @@ int main() {
 
 		//START CODE
 		sscanf(buffer, "%d-%d,%d-%d", &start1, &end1, &start2, &end2);
-		tot += start1 <= start2 && end1 >= end2 || start2 <= start1 && end2 >= end1;
+		tot += start1 <= start2 && start2 <= end1 ||
+				start1 <= end2 && end2 <= end1 ||
+				start2 <= start1 && start1 <= end2 ||
+				start2 <= end1 && end1 <= end2;
 	}
 	printf("%ld\n", tot);
 }
