@@ -13,21 +13,29 @@ typedef struct stack{
 	node *top;
 } stack;
 
-node *pop(stack *s){
+node *pop(stack *s, int level){
 	if(s == NULL || s->top == NULL){
 		return NULL;
 	}
+	node *res = s->top;
 	node *n = s->top;
+	for(int i = 1; i < level; ++i){
+		n = n->bellow;
+	}
 	s->top  = n->bellow;
 	n->bellow = NULL;
-	return n;
+	return res;
 }
 
 void push(stack *s, node *n){
 	if(n == NULL || s == NULL){
 		return;
 	}
-	n->bellow = s->top;
+	node *tmp = n;
+	while(tmp->bellow){
+		tmp = tmp->bellow;
+	}
+	tmp->bellow = s->top;
 	s->top = n;
 }
 
@@ -104,9 +112,9 @@ int main() {
 	while(ftell(f) != total) {
 		memset(buffer, 0, 100);
 		fgets(buffer, 90, f);
-		sscanf(buffer, "move %d from %d to %d", &move, &from, &to);
-		for(int i = 0; i < move; ++i){
-			push(stacks[to-1], pop(stacks[from-1]));
+		int lec = sscanf(buffer, "move %d from %d to %d", &move, &from, &to);
+		if(lec == 3) {
+			push(stacks[to - 1], pop(stacks[from - 1], move));
 		}
 	}
 	for(int i = 0; i < stacksNumber; ++i){
