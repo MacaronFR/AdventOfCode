@@ -4,10 +4,18 @@
 #include <ctype.h>
 #include <stdbool.h>
 
-bool allDifferent(char a, char b, char c, char d){
-	return a != b && a != c && a != d
-	&& b != c && b != d
-	&& c != d;
+bool different14(char* s){
+	if(strlen(s) < 14){
+		return false;
+	}
+	for(int i = 0; i < 13; ++i){
+		for(int j = i + 1; j < 14; ++j){
+			if(s[i] == s[j]){
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 int main() {
@@ -26,10 +34,10 @@ int main() {
 	while(ftell(f) != total) {
 		memset(buffer, 0, 100);
 		fgets(buffer, 90, f);
-		read = buffer + 3;
-		while(read - buffer < strlen(buffer)){
-			if(allDifferent(read[0], read[-1], read[-2], read[-3])){
-				printf("%ld\n", read - buffer + delta +1);
+		read = buffer;
+		while(read - buffer < strlen(buffer) - 14){
+			if(different14(read)){
+				printf("%ld\n", read - buffer + delta + 14);
 				return 0;
 			}
 			read++;
