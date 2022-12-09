@@ -131,19 +131,27 @@ size_t calcSize(dir *root){
 	return root->size;
 }
 
-size_t calcUnder100000Size(dir *root){
+size_t pickDirToDelete(dir *root, size_t available){
 	int i = 0;
-	size_t total = 0;
+	size_t min = 70000000;
 	while(root->items[i] != NULL){
 		if(root->items[i]->valueType == DIR){
-			if(root->items[i]->value.d.size < 100000){
-				total += root->items[i]->value.d.size;
+			size_t tmp = pickDirToDelete(&(root->items[i]->value.d), available);
+			if(tmp != 0) {
+				if(tmp >= 30000000 - available && tmp < min){
+					min = tmp;
+				}
 			}
-			total += calcUnder100000Size(&(root->items[i]->value.d));
 		}
 		i++;
 	}
-	return total;
+	if(min != 70000000){
+		return min;
+	}else if(root->size >= 30000000 - available){
+		return root->size;
+	}else{
+		return 0;
+	}
 }
 
 int main() {
@@ -172,6 +180,6 @@ int main() {
 		}
 	}
 	calcSize(&root);
-	printf("Total = %lu\n", calcUnder100000Size(&root));
+	printf("Size to delete %lu\n", pickDirToDelete(&root, 70000000 - root.size));
 	return 0;
 }
