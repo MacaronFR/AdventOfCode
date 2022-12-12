@@ -5,64 +5,28 @@
 #include <stdbool.h>
 #include <assert.h>
 
-typedef enum cardinaux{
-	NORTH,
-	SOUTH,
-	EAST,
-	WEST
-} cardinaux;
-
 typedef struct item{
-	int value;
-	int visibilityD[4];
-	int total;
+	int x;
+	int y;
+	struct item *next;
 } item;
 
-item empty = {
-		0,
-		{-1,-1,-1,-1},
-		-1
-};
+item *addItem(int x, int y, item *root){
+	item *new = malloc(sizeof(item));
+	new->x = x;
+	new->y = y;
+	new->next = root;
+	return new;
+}
 
-void getVisibility(item **array, int y, int x);
-
-item *getNext(item **array, int *y, int *x, cardinaux direction){
-	switch (direction) {
-		case NORTH:
-			(*y)--;
-			break;
-		case SOUTH:
-			(*y)++;
-			break;
-		case EAST:
-			(*x)++;
-			break;
-		case WEST:
-			(*x)--;
-			break;
+bool isIn(item *root, int x, int y){
+	while(root != NULL){
+		if(x == root->x && y == root->y){
+			return true;
+		}
+		root = root->next;
 	}
-	return &(array[*y][*x]);
-}
-
-int getVisibilityDirection(item **array, int y, int x, cardinaux direction, bool start, int height){
-	item *current = &(array[y][x]);
-	if(!start && (current->value >= height || current->visibilityD[direction] == 0)){
-		return 1;
-	}
-	getNext(array, &y, &x, direction);
-	return getVisibilityDirection(array, y, x, direction, false, height) + (start ? 0 : 1);
-}
-
-void setTotal(item *i){
-	i->total = i->visibilityD[NORTH] * i->visibilityD[EAST] * i->visibilityD[SOUTH] * i->visibilityD[WEST];
-}
-
-void getVisibility(item **array, int y, int x){
-	array[y][x].visibilityD[NORTH] = getVisibilityDirection(array, y, x, NORTH, true, array[y][x].value);
-	array[y][x].visibilityD[EAST] = getVisibilityDirection(array, y, x, EAST, true, array[y][x].value);
-	array[y][x].visibilityD[SOUTH] = getVisibilityDirection(array, y, x, SOUTH, true, array[y][x].value);
-	array[y][x].visibilityD[WEST] = getVisibilityDirection(array, y, x, WEST, true, array[y][x].value);
-	setTotal(&(array[y][x]));
+	return false;
 }
 
 int main() {
@@ -74,65 +38,59 @@ int main() {
 	fseek(f, 0, SEEK_SET);
 
 	//START CUSTOM VARIABLE
-	item **array;
-	int nLine = 0;
-	size_t col;
-	int max = 0;
+	item *root = addItem(0, 0, NULL);
+	item *tmp;
+	int xTail = 0;
+	int yTail = 0;
+	int xHead = 0;
+	int yHead = 0;
+	int tot = 0;
+	char dir;
+	int amount;
 
 	//START READ FILE
 	while(ftell(f) != total) {
 		memset(buffer, 0, 110);
 		fgets(buffer, 105, f);
-		nLine++;
-	}
-	fseek(f, 0, SEEK_SET);
-	memset(buffer, 0, 110);
-	fgets(buffer, 105, f);
-	col = strlen(buffer) - 1;
-	fseek(f, 0, SEEK_SET);
-
-	array = malloc(sizeof(item *) * (nLine));
-
-	for(int i = 0; i < nLine; ++i){
-		memset(buffer, 0, 110);
-		fgets(buffer, 105, f);
-		array[i] = malloc(sizeof(item) * col);
-		for(int j = 0; j < col; ++j){
-			array[i][j] = empty;
-			array[i][j].value = buffer[j] - '0';
-			if(i == 0){
-				array[i][j].total = 0;
-				array[i][j].visibilityD[NORTH] = 0;
+		sscanf(buffer, "%c %d", &dir, &amount);
+		for(int i = 0; i < amount; ++i) {
+			switch (buffer[0]) {
+				case 'L':
+					xHead--;
+					break;
+				case 'R':
+					xHead++;
+					break;
+				case 'U':
+					yHead++;
+					break;
+				case 'D':
+					yHead--;
+					break;
 			}
-			if(j == 0){
-				array[i][j].total = 0;
-				array[i][j].visibilityD[WEST] = 0;
+			if (abs(xHead - xTail) > 1) {
+				if (yHead != yTail) {
+					yTail = yHead;
+				}
+				xTail += (xHead - xTail) / 2;
+			} else if (abs(yHead - yTail) > 1) {
+				if (xHead != xTail) {
+					xTail = xHead;
+				}
+				yTail += (yHead - yTail) / 2;
 			}
-			if(i == nLine - 1){
-				array[i][j].total = 0;
-				array[i][j].visibilityD[SOUTH] = 0;
-			}
-			if(j == col - 1){
-				array[i][j].total = 0;
-				array[i][j].visibilityD[EAST] = 0;
+			if (!isIn(root, xTail, yTail)) {
+				root = addItem(xTail, yTail, root);
 			}
 		}
 	}
 
-	for(int i = 1; i < nLine - 1; ++i){
-		for (int j = 1; j < col - 1; ++j) {
-			getVisibility(array, i, j);
-		}
+	while(root != NULL){
+		tot++;
+		tmp = root->next;
+		free(root);
+		root = tmp;
 	}
 
-	for(int i = 0; i < nLine; ++i){
-		for (int j = 0; j < col; ++j) {
-			printf("%d ", array[i][j].total);
-			if(array[i][j].total > max){
-				max = array[i][j].total;
-			}
-		}
-		printf("\n");
-	}
-	printf("Total = %d\n", max);
+	printf("Total = %d", tot);
 }
