@@ -12,23 +12,19 @@ typedef enum cardinaux{
 	WEST
 } cardinaux;
 
-typedef enum visibility{
-	YES,
-	NO,
-	UNKNOWN
-} visibility;
-
 typedef struct item{
 	int value;
-	int maxD[4];
-	visibility visible;
+	int visibilityD[4];
+	int total;
 } item;
 
 item empty = {
 		0,
 		{-1,-1,-1,-1},
-		UNKNOWN
+		-1
 };
+
+void getVisibility(item **array, int y, int x);
 
 item *getNext(item **array, int *y, int *x, cardinaux direction){
 	switch (direction) {
@@ -48,28 +44,25 @@ item *getNext(item **array, int *y, int *x, cardinaux direction){
 	return &(array[*y][*x]);
 }
 
-int getMax(item **array, int y, int x, cardinaux direction){
+int getVisibilityDirection(item **array, int y, int x, cardinaux direction, bool start, int height){
 	item *current = &(array[y][x]);
-	item *next = getNext(array, &y, &x, direction);
-	if(next->maxD[direction] == -1){
-		next->maxD[direction] = getMax(array, y, x, direction);
+	if(!start && (current->value >= height || current->visibilityD[direction] == 0)){
+		return 1;
 	}
-	if(next->maxD[direction] >= next->value){
-		current->maxD[direction] = next->maxD[direction];
-	}else{
-		current->maxD[direction] = next->value;
-	}
-	return current->maxD[direction];
+	getNext(array, &y, &x, direction);
+	return getVisibilityDirection(array, y, x, direction, false, height) + (start ? 0 : 1);
 }
 
-void setVisibility(item *i){
-	i->visible =
-			i->maxD[NORTH] >= i->value &&
-			i->maxD[EAST] >= i->value &&
-			i->maxD[SOUTH] >= i->value &&
-			i->maxD[WEST] >= i->value
-			? NO
-			: YES;
+void setTotal(item *i){
+	i->total = i->visibilityD[NORTH] * i->visibilityD[EAST] * i->visibilityD[SOUTH] * i->visibilityD[WEST];
+}
+
+void getVisibility(item **array, int y, int x){
+	array[y][x].visibilityD[NORTH] = getVisibilityDirection(array, y, x, NORTH, true, array[y][x].value);
+	array[y][x].visibilityD[EAST] = getVisibilityDirection(array, y, x, EAST, true, array[y][x].value);
+	array[y][x].visibilityD[SOUTH] = getVisibilityDirection(array, y, x, SOUTH, true, array[y][x].value);
+	array[y][x].visibilityD[WEST] = getVisibilityDirection(array, y, x, WEST, true, array[y][x].value);
+	setTotal(&(array[y][x]));
 }
 
 int main() {
@@ -84,7 +77,7 @@ int main() {
 	item **array;
 	int nLine = 0;
 	size_t col;
-	size_t tot = 0;
+	int max = 0;
 
 	//START READ FILE
 	while(ftell(f) != total) {
@@ -108,44 +101,38 @@ int main() {
 			array[i][j] = empty;
 			array[i][j].value = buffer[j] - '0';
 			if(i == 0){
-				array[i][j].visible = YES;
-				array[i][j].maxD[NORTH] = 0;
+				array[i][j].total = 0;
+				array[i][j].visibilityD[NORTH] = 0;
 			}
 			if(j == 0){
-				array[i][j].visible = YES;
-				array[i][j].maxD[WEST] = 0;
+				array[i][j].total = 0;
+				array[i][j].visibilityD[WEST] = 0;
 			}
 			if(i == nLine - 1){
-				array[i][j].visible = YES;
-				array[i][j].maxD[SOUTH] = 0;
+				array[i][j].total = 0;
+				array[i][j].visibilityD[SOUTH] = 0;
 			}
 			if(j == col - 1){
-				array[i][j].visible = YES;
-				array[i][j].maxD[EAST] = 0;
+				array[i][j].total = 0;
+				array[i][j].visibilityD[EAST] = 0;
 			}
 		}
 	}
 
 	for(int i = 1; i < nLine - 1; ++i){
-		for(int j = 1; j < col - 1; ++j){
-			getMax(array, i, j, NORTH);
-			getMax(array, i, j, SOUTH);
-			getMax(array, i, j, EAST);
-			getMax(array, i, j, WEST);
-			setVisibility(&(array[i][j]));
+		for (int j = 1; j < col - 1; ++j) {
+			getVisibility(array, i, j);
 		}
 	}
 
 	for(int i = 0; i < nLine; ++i){
 		for (int j = 0; j < col; ++j) {
-			if(array[i][j].visible == YES){
-				printf("V");
-				tot++;
-			}else{
-				printf("X");
+			printf("%d ", array[i][j].total);
+			if(array[i][j].total > max){
+				max = array[i][j].total;
 			}
 		}
 		printf("\n");
 	}
-	printf("Total = %lu\n", tot);
+	printf("Total = %d\n", max);
 }
