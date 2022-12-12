@@ -3,183 +3,149 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <assert.h>
 
-void readLine(char *buffer, int size, FILE *stream){
-	memset(buffer, 0, 100);
-	fgets(buffer, size, stream);
-	buffer[strlen(buffer) - 1] = 0;
-}
+typedef enum cardinaux{
+	NORTH,
+	SOUTH,
+	EAST,
+	WEST
+} cardinaux;
 
-typedef struct item item;
+typedef enum visibility{
+	YES,
+	NO,
+	UNKNOWN
+} visibility;
 
-typedef struct file {
-	char *name;
-	size_t size;
-} file;
+typedef struct item{
+	int value;
+	int maxD[4];
+	visibility visible;
+} item;
 
-typedef struct dir {
-	item **items;
-	size_t size;
-	char *name;
-	struct dir *parent;
-} dir;
-
-typedef enum type {
-	DIR,
-	FIL
-}type;
-
-typedef union item_value {
-	file f;
-	dir d;
-} item_value;
-
-struct item {
-	item_value value;
-	type valueType;
+item empty = {
+		0,
+		{-1,-1,-1,-1},
+		UNKNOWN
 };
 
-size_t countItems(item **items){
-	if(items == NULL){
-		return 0;
-	}
-	size_t count = 0;
-	while(items[count] != NULL){
-		count++;
-	}
-	return count;
-}
-
-void addItem(dir *current, type t, char *name, size_t size){
-	size_t newSize = countItems(current->items) + 1;
-	current->items = realloc(current->items, sizeof(item*) * (newSize + 1));
-	item *i = malloc(sizeof(item));
-	i->valueType = t;
-	switch (t) {
-		case FIL:
-			i->value.f.size = size;
-			i->value.f.name = name;
+item *getNext(item **array, int *y, int *x, cardinaux direction){
+	switch (direction) {
+		case NORTH:
+			(*y)--;
 			break;
-		case DIR:
-			i->value.d.size = size;
-			i->value.d.name = name;
-			i->value.d.items = NULL;
-			i->value.d.parent = current;
+		case SOUTH:
+			(*y)++;
+			break;
+		case EAST:
+			(*x)++;
+			break;
+		case WEST:
+			(*x)--;
 			break;
 	}
-	current->items[newSize-1] = i;
-	current->items[newSize] = NULL;
+	return &(array[*y][*x]);
 }
 
-dir *searchDir(item **items, const char *search){
-	while(*items != NULL){
-		if((*items)->valueType == DIR){
-			if(strcmp((*items)->value.d.name, search) == 0){
-				return &(*items)->value.d;
-			}
-		}
-		items++;
+int getMax(item **array, int y, int x, cardinaux direction){
+	item *current = &(array[y][x]);
+	item *next = getNext(array, &y, &x, direction);
+	if(next->maxD[direction] == -1){
+		next->maxD[direction] = getMax(array, y, x, direction);
 	}
-	return NULL;
-}
-
-void cd(dir *root, const char *line, dir **current){
-	if(line[2] == 'c' && line[3] == 'd'){
-		const char *path = line + 5;
-		if(path[0] == '/'){
-			*current = root;
-		}else if(path[0] == '.' && path[1] == '.') {
-			*current = (*current)->parent;
-		}else{
-			*current = searchDir((*current)->items, path);
-		}
-	}
-}
-
-void ls(dir *current, char *line, FILE *f){
-	if(line[2] == 'l' && line[3] == 's'){
-		readLine(line, 90, f);
-		do{
-			if(strncmp(line, "dir", 3) == 0){
-				char *name = malloc(sizeof(char) * (strlen(line + 4) + 1));
-				strcpy(name, line+4);
-				addItem(current, DIR, name, 0);
-			}else{
-				int i = 0;
-				while(isdigit(line[i++]));
-				line[i] = 0;
-				char *name = malloc(sizeof(char) * (strlen(line+i+1) + 1));
-				strcpy(name, line+i+1);
-				size_t size = atoi(line);
-				addItem(current, FIL, name, size);
-			}
-			readLine(line, 90, f);
-		}while (line[0] != '$' && line[0] != 0);
-	}
-}
-
-size_t calcSize(dir *root){
-	int i = 0;
-	while(root->items[i] != NULL){
-		if(root->items[i]->valueType == DIR){
-			root->size += calcSize(&(root->items[i]->value.d));
-		}else{
-			root->size += root->items[i]->value.f.size;
-		}
-		i++;
-	}
-	return root->size;
-}
-
-size_t pickDirToDelete(dir *root, size_t available){
-	int i = 0;
-	size_t min = 70000000;
-	while(root->items[i] != NULL){
-		if(root->items[i]->valueType == DIR){
-			size_t tmp = pickDirToDelete(&(root->items[i]->value.d), available);
-			if(tmp != 0) {
-				if(tmp >= 30000000 - available && tmp < min){
-					min = tmp;
-				}
-			}
-		}
-		i++;
-	}
-	if(min != 70000000){
-		return min;
-	}else if(root->size >= 30000000 - available){
-		return root->size;
+	if(next->maxD[direction] >= next->value){
+		current->maxD[direction] = next->maxD[direction];
 	}else{
-		return 0;
+		current->maxD[direction] = next->value;
 	}
+	return current->maxD[direction];
+}
+
+void setVisibility(item *i){
+	i->visible =
+			i->maxD[NORTH] >= i->value &&
+			i->maxD[EAST] >= i->value &&
+			i->maxD[SOUTH] >= i->value &&
+			i->maxD[WEST] >= i->value
+			? NO
+			: YES;
 }
 
 int main() {
 	// READ FILE INIT
-	char buffer[100] = {0};
+	char buffer[110] = {0};
 	FILE *f = fopen("../data", "r");
 	fseek(f, 0, SEEK_END);
 	long total = ftell(f);
 	fseek(f, 0, SEEK_SET);
 
 	//START CUSTOM VARIABLE
-	dir root = {
-			NULL,
-			0,
-			"/",
-			NULL
-	};
-	dir *current = &root;
+	item **array;
+	int nLine = 0;
+	size_t col;
+	size_t tot = 0;
 
 	//START READ FILE
 	while(ftell(f) != total) {
-		readLine(buffer, 90, f);
-		if(buffer[0] == '$'){
-			ls(current, buffer, f);
-			cd(&root, buffer, &current);
+		memset(buffer, 0, 110);
+		fgets(buffer, 105, f);
+		nLine++;
+	}
+	fseek(f, 0, SEEK_SET);
+	memset(buffer, 0, 110);
+	fgets(buffer, 105, f);
+	col = strlen(buffer) - 1;
+	fseek(f, 0, SEEK_SET);
+
+	array = malloc(sizeof(item *) * (nLine));
+
+	for(int i = 0; i < nLine; ++i){
+		memset(buffer, 0, 110);
+		fgets(buffer, 105, f);
+		array[i] = malloc(sizeof(item) * col);
+		for(int j = 0; j < col; ++j){
+			array[i][j] = empty;
+			array[i][j].value = buffer[j] - '0';
+			if(i == 0){
+				array[i][j].visible = YES;
+				array[i][j].maxD[NORTH] = 0;
+			}
+			if(j == 0){
+				array[i][j].visible = YES;
+				array[i][j].maxD[WEST] = 0;
+			}
+			if(i == nLine - 1){
+				array[i][j].visible = YES;
+				array[i][j].maxD[SOUTH] = 0;
+			}
+			if(j == col - 1){
+				array[i][j].visible = YES;
+				array[i][j].maxD[EAST] = 0;
+			}
 		}
 	}
-	calcSize(&root);
-	printf("Size to delete %lu\n", pickDirToDelete(&root, 70000000 - root.size));
-	return 0;
+
+	for(int i = 1; i < nLine - 1; ++i){
+		for(int j = 1; j < col - 1; ++j){
+			getMax(array, i, j, NORTH);
+			getMax(array, i, j, SOUTH);
+			getMax(array, i, j, EAST);
+			getMax(array, i, j, WEST);
+			setVisibility(&(array[i][j]));
+		}
+	}
+
+	for(int i = 0; i < nLine; ++i){
+		for (int j = 0; j < col; ++j) {
+			if(array[i][j].visible == YES){
+				printf("V");
+				tot++;
+			}else{
+				printf("X");
+			}
+		}
+		printf("\n");
+	}
+	printf("Total = %lu\n", tot);
 }
