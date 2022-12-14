@@ -5,30 +5,6 @@
 #include <stdbool.h>
 #include <assert.h>
 
-typedef struct item{
-	int x;
-	int y;
-	struct item *next;
-} item;
-
-item *addItem(int x, int y, item *root){
-	item *new = malloc(sizeof(item));
-	new->x = x;
-	new->y = y;
-	new->next = root;
-	return new;
-}
-
-bool isIn(item *root, int x, int y){
-	while(root != NULL){
-		if(x == root->x && y == root->y){
-			return true;
-		}
-		root = root->next;
-	}
-	return false;
-}
-
 int main() {
 	// READ FILE INIT
 	char buffer[110] = {0};
@@ -38,58 +14,41 @@ int main() {
 	fseek(f, 0, SEEK_SET);
 
 	//START CUSTOM VARIABLE
-	item *root = addItem(0, 0, NULL);
-	item *tmp;
-	int xTail = 0;
-	int yTail = 0;
-	int xHead = 0;
-	int yHead = 0;
+	int cycle = 1;
 	int tot = 0;
-	char dir;
-	int amount;
+	int x = 1;
+	int add;
+	memset(buffer, 0, 110);
 
 	//START READ FILE
 	while(ftell(f) != total) {
-		memset(buffer, 0, 110);
-		fgets(buffer, 105, f);
-		sscanf(buffer, "%c %d", &dir, &amount);
-		for(int i = 0; i < amount; ++i) {
-			switch (buffer[0]) {
-				case 'L':
-					xHead--;
-					break;
-				case 'R':
-					xHead++;
-					break;
-				case 'U':
-					yHead++;
-					break;
-				case 'D':
-					yHead--;
-					break;
-			}
-			if (abs(xHead - xTail) > 1) {
-				if (yHead != yTail) {
-					yTail = yHead;
-				}
-				xTail += (xHead - xTail) / 2;
-			} else if (abs(yHead - yTail) > 1) {
-				if (xHead != xTail) {
-					xTail = xHead;
-				}
-				yTail += (yHead - yTail) / 2;
-			}
-			if (!isIn(root, xTail, yTail)) {
-				root = addItem(xTail, yTail, root);
-			}
+		cycle++;
+		if(buffer[0] == 0) {
+			memset(buffer, 0, 110);
+			fgets(buffer, 105, f);
 		}
-	}
-
-	while(root != NULL){
-		tot++;
-		tmp = root->next;
-		free(root);
-		root = tmp;
+		if(strncmp("noop", buffer, 4) == 0){
+			buffer[0] = 0;
+		}
+		if(buffer[0] == 1){
+			sscanf(buffer + 5, "%d", &add);
+			x += add;
+			buffer[0] = 0;
+		}
+		switch (cycle){
+			case 20:
+			case 60:
+			case 100:
+			case 140:
+			case 180:
+			case 220:
+				printf("X = %d\n", x);
+				tot += x * cycle;
+				break;
+		}
+		if(strncmp("addx", buffer, 4) == 0){
+			buffer[0] = 1;
+		}
 	}
 
 	printf("Total = %d", tot);
