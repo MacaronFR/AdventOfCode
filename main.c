@@ -7,6 +7,7 @@
 
 typedef struct item {
 	int value;
+	int *modulo;
 	struct item *next;
 } item;
 
@@ -20,7 +21,7 @@ typedef struct monkey{
 	int test;
 	int ifTrue;
 	int ifFalse;
-	int inspection;
+	unsigned long inspection;
 } monkey;
 
 monkey *createMonkey(){
@@ -56,18 +57,24 @@ item *removeRoot(item **root){
 	return res;
 }
 
-int newStress(monkey *m, int value){
-	int op1 = m->op1Old ? value : m->op1;
-	int op2 = m->op2Old ? value : m->op2;
-	switch (m->operation) {
-		case '*':
-			return op1 * op2;
-		case '+':
-			return op1 + op2;
-		case '-':
-			return op1 - op2;
-		case '/':
-			return op1 / op2;
+void newStress(monkey *m, int *modulos, int tot, const int *tests){
+	for(int i = 0; i < tot; ++i) {
+		int op1 = m->op1Old ? modulos[i] : m->op1;
+		int op2 = m->op2Old ? modulos[i] : m->op2;
+		switch (m->operation) {
+			case '*':
+				modulos[i] = (op1 * op2) % tests[i];
+				break;
+			case '+':
+				modulos[i] = (op1 + op2) % tests[i];
+				break;
+			case '-':
+				modulos[i] = (op1 - op2) % tests[i];
+				break;
+			case '/':
+				modulos[i] = (op1 / op2) % tests[i];
+				break;
+		}
 	}
 }
 
@@ -85,6 +92,8 @@ int main() {
 	monkey *monkeys[20];
 	monkey *current;
 	char *number;
+	int *tests = NULL;
+	int totMonkey = 0;
 
 	memset(monkeys, 0, sizeof(monkeys));
 
@@ -93,9 +102,9 @@ int main() {
 		memset(buffer, 0, 110);
 		fgets(buffer, 105, f);
 		if (buffer[0] == 'M') {
-			monkeys[turn] = createMonkey();
-			current = monkeys[turn];
-			turn++;
+			monkeys[totMonkey] = createMonkey();
+			current = monkeys[totMonkey];
+			totMonkey++;
 		} else if (buffer[0] == ' ') {
 			if (buffer[2] == 'S') {
 				number = strtok(buffer + 18, ",");
@@ -123,6 +132,8 @@ int main() {
 			} else if (buffer[2] == 'T') {
 				sscanf(buffer, "  Test: divisible by %d", &tot);
 				current->test = tot;
+				tests = realloc(tests, sizeof(int) * totMonkey);
+				tests[totMonkey-1] = tot;
 			} else if (buffer[2] == ' ') {
 				if (buffer[7] == 't') {
 					current->ifTrue = atoi(buffer + 29);
@@ -133,14 +144,26 @@ int main() {
 		}
 	}
 
-	for(int i = 0; i < 20; ++i){
+	for(int i = 0; i < totMonkey; ++i){
+		item *currentItem = monkeys[i]->list;
+		while(currentItem != NULL){
+			currentItem->modulo = malloc(sizeof(int) * totMonkey);
+			for(int j = 0; j < totMonkey; ++j){
+				currentItem->modulo[j] = currentItem->value % tests[j];
+			}
+			currentItem = currentItem->next;
+		}
+	}
+
+	for(int i = 0; i < 10000; ++i){
 		turn = 0;
 		while(monkeys[turn] != NULL){
 			current = monkeys[turn];
 			while(current->list != NULL){
 				current->inspection++;
-				current->list->value = newStress(current, current->list->value) / 3;
-				if(current->list->value % current->test == 0){
+				newStress(current, current->list->modulo, totMonkey, tests);
+				if(current->list->modulo[turn] == 0){
+//				if(current->list->value % current->test == 0){
 					monkeys[current->ifTrue]->list = addItemAtEnd(removeRoot(&current->list), monkeys[current->ifTrue]->list);
 				}else{
 					monkeys[current->ifFalse]->list = addItemAtEnd(removeRoot(&current->list), monkeys[current->ifFalse]->list);
@@ -148,11 +171,14 @@ int main() {
 			}
 			turn++;
 		}
+		if(i == 0 || i == 19 || i == 999 || i == 1999 || i == 2999 || i == 3999 || i == 4999|| i == 5999 || i == 6999 || i == 7999 || i == 8999 || i == 9999){
+			printf("1 => %lu\n2 => %lu\n3 => %lu\n4 => %lu\n=====================================\n", monkeys[0]->inspection, monkeys[1]->inspection, monkeys[2]->inspection, monkeys[3]->inspection);
+		}
 	}
 
 	turn = 0;
-	int max1 = 0;
-	int max2 = 0;
+	unsigned long max1 = 0;
+	unsigned long max2 = 0;
 	while(monkeys[turn] != NULL){
 		if(monkeys[turn]->inspection > max1){
 			max2 = max1;
@@ -162,5 +188,5 @@ int main() {
 		}
 		turn++;
 	}
- 	printf("Total = %d by %d * %d", max1 * max2, max1, max2);
+ 	printf("Total = %lu by %lu * %lu", max1 * max2, max1, max2);
 }
